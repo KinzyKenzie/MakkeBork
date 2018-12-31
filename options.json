@@ -1,0 +1,9 @@
+{
+	"identity": {
+		"username": "BOT_USERNAME",
+		"password": "oauth:"
+	},
+	"channels": [
+		"STREAMER_USERNAME"
+	]
+}
