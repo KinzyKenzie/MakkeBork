@@ -1,14 +1,18 @@
+/// Written on Node.JS v11.5.0
+/// Based on the documentation provided by Twitch ( https://dev.twitch.tv/docs/irc/ )
+/// Uses tmi.js v1.2.1
+
 const path = require('path')
 const tmi = require('tmi.js')
 const fs = require('fs')
 
 let commandPrefix = '!'
-let opts = readFile('./options.json')
-opts['identity']['password'] += readFile('./oauth.json')['token']
+let opts = readJSONFile('./options.json', true)
+opts['identity']['password'] += readJSONFile('./oauth.json', true)['token']
 
 let millis = 0
 
-let knownResponses = readFile('./commands.json')
+let knownResponses = readJSONFile('./commands.json')
 let knownCommands = { commands, addcom, editcom, delcom, caster, english, eng, tally, vote, votes }
 let knownActions = { vohiyo }
 
@@ -21,7 +25,7 @@ let modRights = {
 
 let voteList = {}
 
-function readFile(file)
+function readJSONFile(file, vital)
 {
 	var output = ''
 	
@@ -31,12 +35,17 @@ function readFile(file)
 	}
 	catch (err)
 	{
-		console.log(`[*sys] "${file}" file not found. Continuing with an empty object ...`)
+		if (vital) 
+		{
+			console.log(`[*err] "${file}" file not found. Aborting ...`)
+			process.exit(0)
+		}
+		else console.log(`[*err] "${file}" file not found. Continuing with empty Object`)
 	}
 	
 	if (output != '') { return JSON.parse(output) }
 	
-	return output
+	return {}
 }
 
 function renewFile (input)
