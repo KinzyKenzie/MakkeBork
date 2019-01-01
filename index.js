@@ -29,10 +29,7 @@ function readJSONFile(file, vital)
 {
 	var output = ''
 	
-	try
-	{
-		output = fs.readFileSync(path.resolve(__dirname, file))
-	}
+	try { output = fs.readFileSync(path.resolve(__dirname, file)) }
 	catch (err)
 	{
 		if (vital) 
@@ -43,7 +40,7 @@ function readJSONFile(file, vital)
 		else console.log(`[*err] "${file}" file not found. Continuing with empty Object`)
 	}
 	
-	if (output != '') { return JSON.parse(output) }
+	if (output != '') return JSON.parse(output)
 	
 	return {}
 }
@@ -71,9 +68,7 @@ function commands (target, context, mod, params)
 		}
 	}
 	
-	for (var name in knownResponses) {
-		cmds.push('!' + name)
-	}
+	for (var name in knownResponses) cmds.push('!' + name)
 	
 	if (cmds.length > 0)
 	{
@@ -87,134 +82,154 @@ function commands (target, context, mod, params)
 
 function addcom (target, context, mod, params)
 {
-	var cmd = params[0]
-	
-	if (cmd in knownResponses)
+	if (params.length > 0)
 	{
-		sendMessage(target, context, 'That command already exists!')
+		var cmd = params[0]
+		
+		if (cmd in knownResponses)
+		{
+			sendMessage(target, context, 'That command already exists!')
+		}
+		else
+		{
+			if (cmd.substr(0, 1) == commandPrefix) { cmd = cmd.substr(1, cmd.length) }
+			
+			var word = []
+			for (i = 1; i < params.length; i++) word.push(params[i].replace(/"/g, '\\"'))
+			
+			var output = JSON.stringify(knownResponses)
+			output = output.replace('}','')
+			
+			var entry = ((output.length > 1) ? ',' : '')
+			entry += '"' + cmd + '":"' + word.join(' ') + '"'
+			
+			output += entry + '}'
+			
+			renewFile(output)
+			
+			sendMessage(target, context, 'Command \'' + cmd + '\' has been added!')
+		}
 	}
 	else
 	{
-		if (cmd.substr(0, 1) == commandPrefix) { cmd = cmd.substr(1, cmd.length) }
-		
-		var word = []
-		var output = JSON.stringify(knownResponses)
-		output = output.replace('}','')
-		
-		for (i = 1; i < params.length; i++)
-		{
-			word.push(params[i].replace(/"/g, '\\"'))
-		}
-		
-		var msg = word.join(' ')
-		
-		var entry = ((output.length > 1) ? ',' : '')
-		entry += '"' + cmd + '":"' + msg + '"'
-		
-		output += entry + '}'
-		
-		renewFile(output)
-		
-		sendMessage(target, context, 'Command \'' + cmd + '\' has been added!')
+		sendMessage(target, context, 'Syntax: !addcom <command> <response>')
 	}
 }
 
 function editcom (target, context, mod, params)
 {
-	var cmd = ((params[0].substr(0, 1) == commandPrefix) ?
-		params[0].substr(1, params[0].length) :
-		params[0])
-	
-	if (cmd in knownResponses)
+	if (params.length > 0)
 	{
-		var msg = ''
-		for (i = 1; i < params.length; i++)
+		var cmd = ((params[0].substr(0, 1) == commandPrefix) ?
+			params[0].substr(1, params[0].length) :
+			params[0])
+		
+		if (cmd in knownResponses)
 		{
-			msg += params[i] + ' '
+			// var word = []
+			// for (i = 1; i < params.length; i++) word.push(params[i])
+			var word = params
+			word.unshift()
+			
+			knownResponses[cmd] = word.join(' ')
+			renewFile(JSON.stringify(knownResponses))
+			sendMessage(target, context, 'Command \'' + cmd + '\' has been edited!')
 		}
-		msg = msg.trim()
-		
-		knownResponses[cmd] = msg
-		
-		renewFile(JSON.stringify(knownResponses))
-		
-		sendMessage(target, context, 'Command \'' + cmd + '\' has been edited!')
+		else
+		{
+			sendMessage(target, context, 'Command not found.')
+		}
 	}
 	else
 	{
-		sendMessage(target, context, 'Command not found.')
+		sendMessage(target, context, 'Syntax: !editcom <command> <new response>')
 	}
 }
 
 function delcom (target, context, mod, params)
 {
-	var cmd = ((params[0].substr(0, 1) == commandPrefix) ?
-		params[0].substr(1, params[0].length) :
-		params[0])
-	
-	if (cmd in knownResponses)
+	if (params.length > 0)
 	{
-		var input = JSON.stringify(knownResponses)
-		input = input.replace('{', '')
-		input = input.replace('}', '')
+		var cmd = ((params[0].substr(0, 1) == commandPrefix) ?
+			params[0].substr(1, params[0].length) :
+			params[0])
 		
-		var entry = input.split(',')
-		var output = '{'
-		
-		for (i = 0; i < entry.length; i++)
+		if (cmd in knownResponses)
 		{
-			if (!entry[i].includes(cmd))
+			var input = JSON.stringify(knownResponses)
+			input = input.replace('{', '')
+			input = input.replace('}', '')
+			
+			var entry = input.split(',')
+			var output = '{'
+			
+			for (i = 0; i < entry.length; i++)
 			{
-				output += entry[i] + ','
+				if (!entry[i].includes(cmd))
+				{
+					output += entry[i] + ','
+				}
 			}
+			
+			output = output.substring(0, output.length - 1)
+			if (output.length > 0) output += '}'
+			
+			renewFile(output)
+			
+			sendMessage(target, context, 'Command \'' + cmd + '\' has been removed!')
 		}
-		
-		output = output.substring(0, output.length - 1)
-		if (output.length > 0) output += '}'
-		
-		renewFile(output)
-		
-		sendMessage(target, context, 'Command \'' + cmd + '\' has been removed!')
+		else
+		{
+			sendMessage(target, context, 'Command not found.')
+		}
 	}
 	else
 	{
-		sendMessage(target, context, 'Command not found.')
+		sendMessage(target, context, 'Syntax: !delcom <command>')
 	}
 }
 
 function caster (target, context, mod, params)
 {
-	var msg = params[0] + ' is an awesome streamer, and you should definitely check them out at https://twitch.tv/' +
-	params[0].toLowerCase()
-	
-	sendMessage(target, context, msg)
+	if (params.length > 0) sendMessage(target, context, params[0] + ' is an awesome streamer, and you ' +
+	'should definitely check them out at https://twitch.tv/' + params[0].toLowerCase())
+	else sendMessage(target, context, 'Syntax: !caster <username>')
 }
 
 function eng (target, context, mod, params) { english(target, context, mod, params) }
 function english (target, context, mod, params)
 {
-	sendMessage(target, context, 'English Only please, ' + params[0] + '!')
+	if (params.length > 0) sendMessage(target, context, 'English Only please, ' + params[0] + '!')
+	else sendMessage(target, context, 'English Only, please!')
 }
 
 function tally (target, context, mod, params)
 {
-	var list = inVoteList(params[0])
-	
-	if (list != null)
+	if (params.length > 0)
 	{
-		var names = []
+		var list = inVoteList(params[0])
 		
-		voteList[list].forEach(function(element) {
-			names.push(element)
-		})
-		
-		var pronoun = ((names.length == 1) ? 'person' : 'peeps')
-		
-		sendMessage(target, context, voteList[list].length + ' ' + pronoun + ' voted for \'' + list + '\': ' + names.join(', '))
+		if (list != null)
+		{
+			var names = []
+			
+			voteList[list].forEach(function(element) {
+				names.push(element)
+			})
+			
+			var pronoun = ((names.length == 1) ? 'person' : 'peeps')
+			
+			sendMessage(target, context, voteList[list].length + ' ' + pronoun + ' voted for \'' + list +
+			'\': ' + names.join(', '))
+		}
+		else
+		{
+			sendMessage(target, context, 'No vote exists with that name!')
+		}
 	}
 	else
 	{
-		sendMessage(target, context, 'No vote exists with that name!')
+		sendMessage(target, context, 'Syntax: !vote <active vote>')
 	}
 }
 
@@ -229,20 +244,15 @@ function vote (target, context, mod, params)
 			if (!voteList[list].includes(context.username))
 			{
 				voteList[list].push(context.username)
-				sendMessage(target, context, '@' + context.username + ' voted for \'' + list + '\'. Votes for this now at ' + voteList[list].length)
+				sendMessage(target, context, '@' + context.username + ' voted for \'' + list +
+				'\'. Votes for this now at ' + voteList[list].length)
 			}
 			else { sendMessage(target, context, 'You already voted for that!') }
 		}
 		else if (mod)
 		{
-			if (params[1] == '++')
-			{
-				voteList[params[0]] = [ context.username ]
-			}
-			else
-			{
-				voteList[params[0]] = []
-			}
+			if (params[1] == '++') voteList[params[0]] = [ context.username ]
+			else voteList[params[0]] = []
 			
 			sendMessage(target, context, 'Added \'' + params[0] + '\' to the votes list')
 		}
@@ -257,16 +267,14 @@ function votes (target, context, mod, params)
 {
 	if (Object.keys(voteList).length == 0)
 	{
-		sendMessage(target, context, 'There are no ongoing votes - A mod can make one at any time with !vote <word>')
+		sendMessage(target, context, 'There are no ongoing votes - A mod can make one at any time with ' +
+		'!vote <word>')
 	}
 	else	
 	{
 		var msg = []
 		
-		for (var list in voteList)
-		{
-			msg.push(list + ' (' + voteList[list].length + ')')
-		}
+		for (var list in voteList) msg.push(list + ' (' + voteList[list].length + ')')
 		
 		sendMessage(target, context, 'Ongoing votes: ' + msg.join(', '))
 	}
@@ -285,8 +293,7 @@ function respondQuote (target, context, mod, params)
 
 function respondFull (target, context, mod, params)
 {
-	var msg = params.join(' ')
-	sendMessage(target, context, msg)
+	sendMessage(target, context, params.join(' '))
 }
 
 function sendMessage (target, context, message)
@@ -316,17 +323,14 @@ function inVoteList(arg)
 
 function timeCheck ()
 {
-	if (millis > Date.now() - 2500)
-	{
-		return false
-	}
+	if (millis > Date.now() - 2500) return false
 	return true
 }
 
 function modCheck (user)
 {
-	if (user.mod) { return true }
-	if (user['badges-raw'].includes('broadcaster')) { return true }
+	if (user.mod) return true
+	if (user['badges-raw'].includes('broadcaster')) return true
 	return false
 }
 
@@ -409,7 +413,8 @@ function onMessageHandler (target, context, msg, self)
 function onHostedHandler (channel, username, viewers, autohost)
 {
 	console.log(`[*sys] Host received from ${username} (${viewers})`)
-	if (!autohost && viewers > 0) client.say(channel, 'OhMyDog ' + username + ' is bringing over ' + viewers + ' of their mates! OhMyDog')
+	if (!autohost && viewers > 0) client.say(channel, 'OhMyDog ' + username + ' is bringing over ' +
+	viewers + ' of their mates! OhMyDog')
 }
 
 function onCheerHandler (channel, tags, msg) // Might do something with this in future
