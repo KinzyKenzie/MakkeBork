@@ -5,16 +5,16 @@
 const path = require('path')
 const tmi = require('tmi.js')
 const fs = require('fs')
+const https = require('https')
 
 let commandPrefix = '!'
 let opts = readJSONFile('./options.json', true)
-opts['identity']['password'] += readJSONFile('./oauth.json', true)['token']
 
 let millis = 0
 
 let knownResponses = readJSONFile('./commands.json')
-let knownCommands = { commands, addcom, editcom, delcom, caster, english, eng, tally, vote, votes }
-let knownActions = { vohiyo }
+let knownCommands = { commands, addcom, editcom, delcom, caster, english, eng, crest, crew, team, tally, vote, votes }
+let knownActions = { makkebhi, vohiyo }
 
 let modRights = {
 	addcom: true,
@@ -27,7 +27,7 @@ let voteList = {}
 
 function readJSONFile(file, vital)
 {
-	var output = ''
+	var output
 	
 	try { output = fs.readFileSync(path.resolve(__dirname, file)) }
 	catch (err)
@@ -40,15 +40,15 @@ function readJSONFile(file, vital)
 		else console.log(`[*err] "${file}" file not found. Continuing with empty Object`)
 	}
 	
-	if (output != '') return JSON.parse(output)
+	if (output != null) return JSON.parse(output)
 	
 	return {}
 }
 
 function renewFile (input)
 {
+	// Formatting the JSON Output
 	var output = input.replace('{', '{\n\t')
-	
 	output = output.replace(/":"/g, '": "')
 	output = output.replace(/",/g, '",\n\t')
 	output = output.replace('}', '\n}\n')
@@ -57,6 +57,7 @@ function renewFile (input)
 	knownResponses = ((input.length > 1) ? JSON.parse(input) : {})
 }
 
+/// START OF KNOWNCOMMANDS
 function commands (target, context, mod, params)
 {
 	var cmds = []
@@ -203,6 +204,13 @@ function english (target, context, mod, params)
 	else sendMessage(target, context, 'English Only, please!')
 }
 
+function crest (target, context, mod, params) { team (target, context, mod, params) }
+function crew (target, context, mod, params) { team (target, context, mod, params) }
+function team (target, context, mod, params)
+{
+	sendMessage(target, context, 'Check out the awesome people of the KZ_CREW eSports Rollerblading Team at https://www.twitch.tv/team/kz_crew !')
+}
+
 function tally (target, context, mod, params)
 {
 	if (params.length > 0)
@@ -244,7 +252,7 @@ function vote (target, context, mod, params)
 			if (!voteList[list].includes(context.username))
 			{
 				voteList[list].push(context.username)
-				sendMessage(target, context, '@' + context.username + ' voted for \'' + list +
+				sendMessage(target, context, context.username + ' voted for \'' + list +
 				'\'. Votes for this now at ' + voteList[list].length)
 			}
 			else { sendMessage(target, context, 'You already voted for that!') }
@@ -255,6 +263,10 @@ function vote (target, context, mod, params)
 			else voteList[params[0]] = []
 			
 			sendMessage(target, context, 'Added \'' + params[0] + '\' to the votes list')
+		}
+		else
+		{
+			sendMessage(target, context, 'No vote exists with that name!')
 		}
 	}
 	else
@@ -279,16 +291,25 @@ function votes (target, context, mod, params)
 		sendMessage(target, context, 'Ongoing votes: ' + msg.join(', '))
 	}
 }
+/// END OF KNOWNCOMMANDS
+
+/// START OF KNOWNACTIONS
+function makkebhi (target, context, mod, params)
+{
+	params[0] = 'OhMyDog'
+	respondFull(target, context, mod, params)
+}
 
 function vohiyo (target, context, mod, params)
 {
 	params[0] = 'OhMyDog'
 	respondFull(target, context, mod, params)
 }
+/// END OF KNOWNACTIONS
 
-function respondQuote (target, context, mod, params)
+function respondShort (target, context, mod, params)
 {
-	sendMessage(target, context, params[0])
+	client.say(target, params[0])
 }
 
 function respondFull (target, context, mod, params)
@@ -304,7 +325,10 @@ function sendMessage (target, context, message)
 	}
 	else
 	{
-		if (!message.includes('OhMyDog')) { message += ' OhMyDog' }
+		if (!message.includes('OhMyDog') && !message.includes('BarkBoyz'))
+		{
+			message += ' OhMyDog'
+		}
 		client.say(target, message)
 	}
 }
@@ -323,14 +347,18 @@ function inVoteList(arg)
 
 function timeCheck ()
 {
-	if (millis > Date.now() - 2500) return false
+	if (millis > new Date() - 2500) return false
 	return true
 }
 
 function modCheck (user)
 {
 	if (user.mod) return true
-	if (user['badges-raw'].includes('broadcaster')) return true
+	if (user['badges-raw'] != null)
+	{
+		if (user['badges-raw'].includes('broadcaster')) return true
+	}
+	
 	return false
 }
 
@@ -363,6 +391,7 @@ function onMessageHandler (target, context, msg, self)
 	const parse = msg.split(' ')
 	const commandName = parse[0].toLowerCase()
 	const params = parse.splice(1)
+	
 	if (msg.substr(0, 1) == commandPrefix)
 	{
 		// Strip the '!' from the command
@@ -379,13 +408,17 @@ function onMessageHandler (target, context, msg, self)
 			}
 			
 			command(target, context, modCheck(context), params)
-			millis = Date.now()
+			
+			millis = new Date()
 			console.log(`[*cmd] Executed command '${commandActual}' for ${context.username}`)
 		}
 		else if (commandActual in knownResponses)
 		{
 			var msg = knownResponses[commandActual]
+			
 			sendMessage(target, context, msg)
+			
+			millis = new Date()
 			console.log(`[*cmd] Executed command '${commandActual}' for ${context.username}`)
 		}
 		else
@@ -400,7 +433,7 @@ function onMessageHandler (target, context, msg, self)
 			const command = knownActions[commandName]
 			command(target, context, modCheck(context), msg.split(' '))
 			
-			millis = Date.now()
+			millis = new Date()
 			console.log(`[*cmd] Executed command '${commandName}' for ${context.username}`)
 		}
 		else
@@ -408,32 +441,6 @@ function onMessageHandler (target, context, msg, self)
 			console.log(`[${context['message-type']}] ${context.username}: ${msg}`)
 		}
 	}
-}
-
-function onHostedHandler (channel, username, viewers, autohost)
-{
-	console.log(`[*sys] Host received from ${username} (${viewers})`)
-	if (!autohost && viewers > 0) client.say(channel, 'OhMyDog ' + username + ' is bringing over ' +
-	viewers + ' of their mates! OhMyDog')
-}
-
-function onCheerHandler (channel, tags, msg) // Might do something with this in future
-{
-	console.log(`[*sys] Cheer received from ${username}`)
-}
-
-// 'method' is an Object containing 'prime', 'plan', and 'planName'
-function onSubscriptionHandler (channel, username, method, message, userstate)
-{
-	console.log(`[*sys] Sub received from ${username}`)
-	
-	client.say(channel, 'OhMyDog ' + username + ' just subbed! OhMyDog')
-}
-
-function onResubHandler (channel, username, months, msg, userstate, method)
-{
-	console.log(`[*sys] Resub received from ${username}`)
-	client.say(channel, 'OhMyDog ' + username + ' has been subbed for ' + months + ' months! OhMyDog')
 }
 
 function onConnectedHandler (addr, port)
@@ -446,4 +453,36 @@ function onDisconnectedHandler (reason)
 {
 	console.log(`[*sys] Disconnected: ${reason}`)
 	process.exit(1)
+}
+
+function onHostedHandler (channel, username, viewers, autohost)
+{
+	console.log(`[*sys] Host received from ${username} (${viewers})`)
+	if (!autohost && viewers > 1) client.say(channel, 'OhMyDog ' + username + ' is bringing over ' +
+	viewers + ' of their mates! OhMyDog')
+}
+
+function onCheerHandler (channel, tags, msg) // Might do something with this in future
+{
+	console.log(`[*sys] Cheer received from ${username}`)
+}
+
+// 'method' is an Object containing 'prime', 'plan', and 'planName'
+function onSubscriptionHandler (channel, username, method, message, userstate)
+{
+	console.log(`[*sys] Sub received from ${username}`)
+	client.say(channel, 'OhMyDog ' + username + ' just subbed! OhMyDog')
+}
+
+function onResubHandler (channel, username, months, msg, userstate, method)
+{
+	console.log(`[*sys] Resub received from ${username}`)
+	if (months > 1)
+	{
+		client.say(channel, 'OhMyDog ' + username + ' has been subbed for ' + months + ' months! OhMyDog')
+	}
+	else
+	{
+		onSubscriptionHandler (channel, username, method, msg, userstate)
+	}
 }
