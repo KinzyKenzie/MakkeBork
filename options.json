@@ -1,9 +1,0 @@
-{
-	"identity": {
-		"username": "<BOT_USERNAME>",
-		"password": "<OAUTH_TOKEN>"
-	},
-	"channels": [
-		"<CHANNEL_NAME>"
-	]
-}
